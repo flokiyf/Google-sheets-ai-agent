@@ -64,7 +64,10 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch('/api/sheets/list')
       
       if (!response.ok) {
-        throw new Error('Erreur lors du chargement des spreadsheets')
+        console.warn('⚠️ API Google Drive non activée, utilisation du mode local')
+        // En cas d'erreur API, utiliser une liste vide plutôt que de planter
+        setSpreadsheets([])
+        return
       }
       
       const result = await response.json()
@@ -73,11 +76,20 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
         console.log(`✅ ${result.count} spreadsheets chargés`)
         setSpreadsheets(result.data)
       } else {
-        throw new Error(result.error || 'Erreur inconnue')
+        console.warn('⚠️ Erreur API, mode local activé')
+        setSpreadsheets([])
       }
     } catch (err) {
-      setError('Erreur lors du chargement des feuilles')
-      console.error('❌ Erreur chargement spreadsheets:', err)
+      console.warn('⚠️ Erreur chargement, utilisation du mode local:', err)
+      // Charger depuis le localStorage en cas d'erreur API
+      try {
+        const savedSheets = JSON.parse(localStorage.getItem('google-sheets-ai-spreadsheets') || '[]')
+        setSpreadsheets(savedSheets)
+        console.log(`📱 ${savedSheets.length} spreadsheets chargés depuis le cache local`)
+      } catch (localErr) {
+        console.error('Erreur localStorage:', localErr)
+        setSpreadsheets([])
+      }
     } finally {
       setIsLoading(false)
     }
@@ -146,6 +158,11 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
       const newSpreadsheet: SpreadsheetInfo = await response.json()
       setSpreadsheets(prev => [...prev, newSpreadsheet])
       setCurrentSpreadsheet(newSpreadsheet)
+      
+      // Sauvegarder dans le localStorage pour persistance
+      const savedSheets = JSON.parse(localStorage.getItem('google-sheets-ai-spreadsheets') || '[]')
+      savedSheets.push(newSpreadsheet)
+      localStorage.setItem('google-sheets-ai-spreadsheets', JSON.stringify(savedSheets))
       
       if (newSpreadsheet.sheets.length > 0) {
         await selectSheet(newSpreadsheet.sheets[0])

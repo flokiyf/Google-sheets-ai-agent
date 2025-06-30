@@ -56,7 +56,8 @@ class GoogleSheetsService {
         key: credentials.private_key,
         scopes: [
           'https://www.googleapis.com/auth/spreadsheets',
-          'https://www.googleapis.com/auth/drive.file'
+          'https://www.googleapis.com/auth/drive.file',
+          'https://www.googleapis.com/auth/drive'
         ]
       })
 
@@ -189,6 +190,45 @@ class GoogleSheetsService {
     } catch (error) {
       console.error('Erreur info spreadsheet:', error)
       throw new Error('Impossible de récupérer les informations')
+    }
+  }
+
+  // Lister toutes les feuilles de calcul créées par le service account
+  async listAllSpreadsheets(): Promise<SpreadsheetInfo[]> {
+    try {
+      if (!this.auth) {
+        throw new Error('Service non initialisé')
+      }
+
+      const drive = google.drive({ version: 'v3', auth: this.auth })
+      
+      // Récupérer tous les fichiers Google Sheets
+      const response = await drive.files.list({
+        q: "mimeType='application/vnd.google-apps.spreadsheet'",
+        fields: 'files(id, name, createdTime, modifiedTime, webViewLink)',
+        orderBy: 'modifiedTime desc'
+      })
+
+      const files = (response.data.files as any[]) || []
+      const spreadsheets: SpreadsheetInfo[] = []
+
+      // Pour chaque fichier, récupérer les informations détaillées
+      for (const file of files) {
+        try {
+          if (file.id) {
+            const spreadsheetInfo = await this.getSpreadsheetInfo(file.id)
+            spreadsheets.push(spreadsheetInfo)
+          }
+        } catch (error) {
+          console.error(`Erreur lors de la récupération des détails pour ${file.id}:`, error)
+          // Continuer avec les autres fichiers
+        }
+      }
+
+      return spreadsheets
+    } catch (error) {
+      console.error('Erreur lors de la récupération des spreadsheets:', error)
+      throw new Error('Impossible de récupérer la liste des spreadsheets')
     }
   }
 

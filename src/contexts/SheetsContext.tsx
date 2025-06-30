@@ -49,18 +49,35 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
   const [analysis, setAnalysis] = useState<SheetAnalysis | null>(null)
   const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'assistant', content: string }[]>([])
 
-  // Charger les feuilles de calcul (simulation - en réalité on aurait une liste depuis l'API)
+  // Charger les spreadsheets au démarrage
+  useEffect(() => {
+    loadSpreadsheets()
+  }, [])
+
+  // Charger les feuilles de calcul depuis l'API
   const loadSpreadsheets = async () => {
     setIsLoading(true)
     setError(null)
     
     try {
-      // Simulation - en réalité, on récupérerait la liste depuis Google Drive API
-      const mockSpreadsheets: SpreadsheetInfo[] = []
-      setSpreadsheets(mockSpreadsheets)
+      console.log('🔄 Chargement de la liste des spreadsheets...')
+      const response = await fetch('/api/sheets/list')
+      
+      if (!response.ok) {
+        throw new Error('Erreur lors du chargement des spreadsheets')
+      }
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        console.log(`✅ ${result.count} spreadsheets chargés`)
+        setSpreadsheets(result.data)
+      } else {
+        throw new Error(result.error || 'Erreur inconnue')
+      }
     } catch (err) {
       setError('Erreur lors du chargement des feuilles')
-      console.error(err)
+      console.error('❌ Erreur chargement spreadsheets:', err)
     } finally {
       setIsLoading(false)
     }
